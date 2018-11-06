@@ -29,31 +29,35 @@ class Cosmology:
     
     def setParams(self, **kwargs):
         self.__dict__.update(kwargs)
-   
-        # Special case
-        self._hubble = self.hubble * Constants.KM_TO_CM / Constants.MPC_TO_CM
-        
+         
         self._precompute()
         
     def _precompute(self):
-        self.D_H = Constants.C_LIGHT / self._hubble # cm
+        self.hubbleTime = (self.hubble * Constants.KM_TO_CM / Constants.MPC_TO_CM)**(-1) # s
+        self.hubbleDistance = Constants.C_LIGHT * self.hubbleTime # cm
         
         # The numerical precision could be improved
         z_array = np.linspace(0., 1000., 1000000)
         dz = z_array[1] - z_array[0]
-        self.D_C = scipy.interpolate.interp1d(z_array, 
-                                              self.D_H * dz * np.cumsum(self.E(z_array)**(-1)))
+        self.comovingDistance = scipy.interpolate.interp1d(z_array, 
+                                                           self.hubbleDistance * dz * np.cumsum(self._E(z_array)**(-1)))
          
     def show(self):
         print(self.__dict__)
         
-    def E(self, z):
+    def _E(self, z):
         return np.sqrt(self.omega_m * (1. + z)**3 + self.omega_lambda)
 
-    def D_L(self, z):
-        return (1. + z) * self.D_C(z)
+    def luminosityDistance(self, z):
+        """
+        Return the luminosity distance (cm) for a set of input redshift values
+        """
+        return (1. + z) * self.comovingDistance(z) # cm
 
-    def D_A(self, z):
-        return (1. + z)**(-1) * self.D_C(z)
+    def angularDistance(self, z):
+        """
+        Return the angular distance (cm) for a set of input redshift values
+        """
+        return (1. + z)**(-1) * self.comovingDistance(z) # cm
         
 ############################################################
