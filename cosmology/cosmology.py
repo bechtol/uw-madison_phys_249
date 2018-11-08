@@ -52,12 +52,14 @@ class Cosmology:
         """
         Return the luminosity distance (cm) for a set of input redshift values
         """
+        z = np.array(z)
         return (1. + z) * self.comovingDistance(z) # cm
 
     def angularDistance(self, z):
         """
         Return the angular distance (cm) for a set of input redshift values
         """
+        z = np.array(z)
         return (1. + z)**(-1) * self.comovingDistance(z) # cm
         
 ############################################################
