@@ -13,7 +13,9 @@ class Constants:
 
     # Physical constants
     C_LIGHT = 2.998e8 # m s^-1
-
+    G_GRAVITATION = 6.674e-11 # m^3 kg^-1 s^-2
+    M_PROTON = 1.673e-27 # J
+    
 ############################################################
     
 class Cosmology:
@@ -48,8 +50,9 @@ class Cosmology:
         """
         Precompute a few derived quantities.
         """
-        self.hubbleTime = (self.hubble_0 * Constants.KM_TO_M / Constants.MPC_TO_M)**(-1) # s
-        self.hubbleDistance = Constants.C_LIGHT * self.hubbleTime # m
+        self.hubble_si = self.hubble_0 * Constants.KM_TO_M / Constants.MPC_TO_M # s^-1, Hubble Constant in SI units
+        self.hubble_time = (self.hubble_si)**(-1) # s
+        self.hubble_distance = Constants.C_LIGHT * self.hubble_time # m
         self.omega_0 = self.omega_matter_0 + self.omega_radiation_0 + self.omega_lambda_0
         if not np.isclose(self.omega_0, 1.):
             print('WARNING: input parameters correspond to universe with non-zero curvature')
@@ -63,7 +66,7 @@ class Cosmology:
         Returns:
             float: comoving distance (m)
         """
-        return self.hubbleDistance * scipy.integrate.quad(self._EReciprocal, 0, z)[0]
+        return self.hubble_distance * scipy.integrate.quad(self._EReciprocal, 0, z)[0]
          
     def show(self):
         """
@@ -136,6 +139,6 @@ class Cosmology:
         Returns:
             float: lookback time (s)
         """
-        return self.hubbleTime * scipy.integrate.quad(self._EReciprocalLookbackTime, 0, z)[0] # s
+        return self.hubble_time * scipy.integrate.quad(self._EReciprocalLookbackTime, 0, z)[0] # s
         
 ############################################################
