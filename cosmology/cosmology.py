@@ -14,7 +14,7 @@ class Constants:
     # Physical constants
     C_LIGHT = 2.998e8 # m s^-1
     G_GRAVITATION = 6.674e-11 # m^3 kg^-1 s^-2
-    M_PROTON = 1.673e-27 # J
+    M_PROTON = 1.673e-27 # kg
     
 ############################################################
     
