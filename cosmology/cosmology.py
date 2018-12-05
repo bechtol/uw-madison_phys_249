@@ -26,13 +26,14 @@ class Cosmology:
         Args:
             omega_matter_0 (float, optional): matter density in units of critical density
             omega_radiation_0 (float, optional): radiation density in units of critical density
-            omega_lambda_0 (float, optional): dark energy density in units of critical density
+            omega_darkenergy_0 (float, optional): dark energy density in units of critical density
             hubble_0 (float, optional): Hubble contant today (km s^-1 Mpc^-1)
         """
         # Default parameter values
         self.omega_matter_0 = 0.3
         self.omega_radiation_0 = 9.0e-5 # photons + neutrinos
-        self.omega_lambda_0 = 1. - (self.omega_matter_0 + self.omega_radiation_0)
+        self.omega_darkenergy_0 = 1. - (self.omega_matter_0 + self.omega_radiation_0)
+        self.w_darkenergy = -1. # equation of state of dark energy
         self.hubble_0 = 70. # km s^-1 Mpc^-1
         
         # Set parameters
@@ -53,7 +54,7 @@ class Cosmology:
         self.hubble_si = self.hubble_0 * Constants.KM_TO_M / Constants.MPC_TO_M # s^-1, Hubble Constant in SI units
         self.hubble_time = (self.hubble_si)**(-1) # s
         self.hubble_distance = Constants.C_LIGHT * self.hubble_time # m
-        self.omega_0 = self.omega_matter_0 + self.omega_radiation_0 + self.omega_lambda_0
+        self.omega_0 = self.omega_matter_0 + self.omega_radiation_0 + self.omega_darkenergy_0
         if not np.isclose(self.omega_0, 1.):
             print('WARNING: input parameters correspond to universe with non-zero curvature')
         
@@ -66,8 +67,19 @@ class Cosmology:
         Returns:
             float: comoving distance (m)
         """
-        return self.hubble_distance * scipy.integrate.quad(self._EReciprocal, 0, z)[0]
-         
+        omega_kappa = 1. - self.omega_0
+        
+        if np.isclose(omega_kappa, 0.):
+            return self.hubble_distance * scipy.integrate.quad(self._EReciprocal, 0, z)[0]
+        elif omega_kappa > 0.:
+            return self.hubble_distance \
+                * np.sinh(np.sqrt(omega_kappa) * scipy.integrate.quad(self._EReciprocal, 0, z)[0]) \
+                / np.sqrt(omega_kappa)
+        else:
+            return self.hubble_distance \
+                * np.sin(np.sqrt(np.fabs(omega_kappa)) * scipy.integrate.quad(self._EReciprocal, 0, z)[0]) \
+                / np.sqrt(np.fabs(omega_kappa))
+            
     def show(self):
         """
         Display the current cosmological parameter values. 
@@ -76,7 +88,7 @@ class Cosmology:
         
     def _E(self, z):
         return np.sqrt(self.omega_matter_0 * (1. + z)**3 \
-                       + self.omega_lambda_0 \
+                       + self.omega_darkenergy_0 * (1. + z)**(3. * (1. + self.w_darkenergy)) \
                        + self.omega_radiation_0 * (1 + z)**4 \
                        + (1. - self.omega_0) * (1 + z)**2)
     
@@ -89,7 +101,7 @@ class Cosmology:
     def _Ea(self, a):
         return np.sqrt(self.omega_radiation_0 * a**(-2) \
                        + self.omega_matter_0 * a**(-1) \
-                       + self.omega_lambda_0 * a**2 \
+                       + self.omega_darkenergy_0 * a**(-1. - (3. * self.w_darkenergy)) \
                        + (1. - self.omega_0))
     
     def _EaReciprocal(self, a):
@@ -115,15 +127,15 @@ class Cosmology:
         Returns:
             float: angular distance (m)
         """
-        return (1. + z) * self.comovingDistance(z) # m
+        return (1. + z)**(-1) * self.comovingDistance(z) # m
     
-    def cosmicTime(self, a, a_init=1.e-10):
+    def cosmicTime(self, a, a_init=1.e-15):
         """Compute the cosmic time corresponding to a given scale factor.
         
         Args:
             a (float): scale factor.
             a_init (float): scale factor at starting time.
-                Defaults to 1.e-10
+                Defaults to 1.e-15
         
         Returns:
             float: cosmic time, H_0 t (dimensionless)
@@ -140,5 +152,27 @@ class Cosmology:
             float: lookback time (s)
         """
         return self.hubble_time * scipy.integrate.quad(self._EReciprocalLookbackTime, 0, z)[0] # s
+        
+    def horizonDistance(self, t):
+        """Compute the horizon distance for a given redshift.
+        
+        Args:
+            t (float): age of the Universe (s)
+            
+        Returns:
+            float: horizon distance in comoving coordinates (m)
+        """
+        # Create a log-spaced set of scale factor values
+        a_array = np.logspace(-15, 3, 10000)
+
+        # For each scale factor value, compute the associated cosmic time
+        t_array = np.empty(len(a_array))
+        for ii in range(0, len(a_array)):
+            t_array[ii] = self.cosmicTime(a_array[ii]) / self.hubble_si
+        
+        # Create interpolation function to use an integrand, scale factor as function of time
+        a_reciprocal = scipy.interpolate.interp1d(t_array, 1. / a_array)
+        
+        return Constants.C_LIGHT * scipy.integrate.quad(a_reciprocal, 0., t)[0]
         
 ############################################################
