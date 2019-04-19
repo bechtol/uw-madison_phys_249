@@ -58,26 +58,48 @@ class Cosmology:
         if not np.isclose(self.omega_0, 1.):
             print('WARNING: input parameters correspond to universe with non-zero curvature')
         
-    def comovingDistance(self, z):
+    def _multiRedshift(self, z, z_second=None):
+        """Handle a second redshift if provided.
+        
+        Args:
+            z (float): redshift
+            z_second (float): a second optional redshift
+            
+        Returns:
+            float: lower redshift (m)
+            float: higher redshift (m)
+        """
+        if z_second is not None and z_second > z:
+            z_1 = z
+            z_2 = z_second
+        else:
+            z_1 = 0.
+            z_2 = z
+        return z_1, z_2
+        
+    def comovingDistance(self, z, z_second=None):
         """Compute the comoving distance for a given redshift.
         
         Args:
             z (float): redshift
+            z_second (float): a second redshift
             
         Returns:
             float: comoving distance (m)
         """
+        z_1, z_2 = self._multiRedshift(z, z_second)
+        
         omega_kappa = 1. - self.omega_0
         
         if np.isclose(omega_kappa, 0.):
-            return self.hubble_distance * scipy.integrate.quad(self._EReciprocal, 0, z)[0]
+            return self.hubble_distance * scipy.integrate.quad(self._EReciprocal, z_1, z_2)[0]
         elif omega_kappa > 0.:
             return self.hubble_distance \
-                * np.sinh(np.sqrt(omega_kappa) * scipy.integrate.quad(self._EReciprocal, 0, z)[0]) \
+                * np.sinh(np.sqrt(omega_kappa) * scipy.integrate.quad(self._EReciprocal, z_1, z_2)[0]) \
                 / np.sqrt(omega_kappa)
         else:
             return self.hubble_distance \
-                * np.sin(np.sqrt(np.fabs(omega_kappa)) * scipy.integrate.quad(self._EReciprocal, 0, z)[0]) \
+                * np.sin(np.sqrt(np.fabs(omega_kappa)) * scipy.integrate.quad(self._EReciprocal, z_1, z_2)[0]) \
                 / np.sqrt(np.fabs(omega_kappa))
             
     def show(self):
@@ -118,16 +140,18 @@ class Cosmology:
         """
         return (1. + z) * self.comovingDistance(z) # m
         
-    def angularDistance(self, z):
+    def angularDistance(self, z, z_second=None):
         """Compute the angular distance for a given redshift.
         
         Args:
             z (float): redshift
+            z_second (float): a second redshift
             
         Returns:
             float: angular distance (m)
         """
-        return (1. + z)**(-1) * self.comovingDistance(z) # m
+        z_1, z_2 = self._multiRedshift(z, z_second)
+        return (1. + z_2)**(-1) * self.comovingDistance(z_1, z_2) # m
     
     def cosmicTime(self, a, a_init=1.e-15):
         """Compute the cosmic time corresponding to a given scale factor.
